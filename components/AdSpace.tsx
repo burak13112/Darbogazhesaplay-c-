@@ -16,50 +16,60 @@ const AdSpace: React.FC<AdProps> = ({ size, className = '', config }) => {
   if (config?.type === 'adsense') {
     
     useEffect(() => {
-      // Slot ID girilmemişse veya '12345...' gibi dummy data ise AdSense'i tetikleme
+      // Slot ID check
       const isValidId = config.adSlot && config.adSlot.length > 5 && /^\d+$/.test(config.adSlot);
 
       if (isValidId && !isLoaded.current && adRef.current) {
-        try {
-          // Initialize adsbygoogle if it doesn't exist
-          if (!window.adsbygoogle) {
-            window.adsbygoogle = [];
+        // HATA ÇÖZÜMÜ:
+        // "No slot size for availableWidth=0" hatasını önlemek için
+        // reklamı hemen değil, DOM render edildikten kısa bir süre sonra çağırıyoruz.
+        const timer = setTimeout(() => {
+          try {
+            // Elementin görünür olduğundan ve genişliğinin olduğundan emin ol
+            if (adRef.current && (adRef.current.offsetWidth > 0 || adRef.current.offsetParent !== null)) {
+              if (!window.adsbygoogle) {
+                window.adsbygoogle = [];
+              }
+              window.adsbygoogle.push({});
+              isLoaded.current = true;
+            }
+          } catch (e) {
+            console.error("AdSense push error:", e);
           }
-          
-          // Push the ad
-          window.adsbygoogle.push({});
-          isLoaded.current = true;
-        } catch (e) {
-          console.error("AdSense push error:", e);
-        }
+        }, 300); // 300ms gecikme sayfanın oturması için yeterlidir
+
+        return () => clearTimeout(timer);
       }
     }, [config.adSlot]);
 
-    // Eğer geçerli bir Slot ID yoksa fallback (kendi görselin) göster
+    // Fallback logic
     const isValidId = config.adSlot && config.adSlot.length > 5 && /^\d+$/.test(config.adSlot);
     
     if (!isValidId) {
-       // Slot ID yoksa Custom moda dön veya boş göster
        return (
         <div className={`relative overflow-hidden bg-slate-800 border border-slate-700/50 rounded-lg flex items-center justify-center p-4 text-center ${className} ${isBanner ? 'h-24' : 'h-64'}`}>
           <div className="text-slate-500 text-xs">
             <p className="font-bold mb-1">REKLAM ALANI</p>
-            <p className="opacity-70">Google AdSense Panelinden "Reklam Birimi" oluşturup<br/>constants.ts dosyasına ID'sini girmelisin.</p>
+            <p className="opacity-70">Google AdSense ID eksik.</p>
           </div>
         </div>
        );
     }
 
     return (
-      <div className={`text-center bg-slate-800/50 rounded-lg overflow-hidden ${className}`}>
-        <div className="inline-block w-full">
+      <div className={`text-center bg-slate-800/50 rounded-lg overflow-hidden w-full ${className} ${isBanner ? 'min-h-[90px]' : 'min-h-[250px]'}`}>
+        <div className="inline-block w-full h-full">
            <ins
             ref={adRef}
             className="adsbygoogle"
-            style={{ display: 'block', width: '100%', height: isBanner ? '90px' : '250px' }}
+            style={{ 
+              display: 'block', 
+              width: '100%', 
+              height: isBanner ? '90px' : '250px' 
+            }}
             data-ad-client={config.adClient}
             data-ad-slot={config.adSlot}
-            data-ad-format="auto"
+            data-ad-format={isBanner ? "auto" : "rectangle"}
             data-full-width-responsive="true"
           ></ins>
         </div>

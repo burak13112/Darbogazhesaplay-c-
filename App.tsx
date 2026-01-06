@@ -342,7 +342,7 @@ const App: React.FC = () => {
             </div>
             
             {/* Sidebar Ad (Only visible on larger screens below results) */}
-            <AdSpace size="banner" className="shadow-xl" config={AD_CONFIG.sidebar} />
+            <AdSpace size="rectangle" className="shadow-xl" config={AD_CONFIG.sidebar} />
           </div>
         </div>
 
