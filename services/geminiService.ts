@@ -1,33 +1,63 @@
 import { CalculationResult } from '../types';
 
-// OPENROUTER CONFIG
+// Config sourced from user reference
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// Kanka senin istediğin modelin güncel ücretsiz versiyonu bu
 const MODEL_ID = "deepseek/deepseek-r1-0528:free"; 
 
-// --- API KEY YÖNETİMİ ---
-// Anahtarları doğrudan alıyoruz ki Vite build ederken sorun yaşamasın.
+// --- ROBUST API KEY DETECTION ---
+// Hem Vite (import.meta.env) hem de Node/Vercel (process.env) ortamlarını kontrol eder.
+// "Bulunamadı" hatasını çözmek için tüm varyasyonlara bakar.
 const getApiKeys = (): string[] => {
-  // @ts-ignore
-  const k1 = import.meta.env.VITE_API_KEY;
-  // @ts-ignore
-  const k2 = import.meta.env.VITE_API_KEY2;
-  
   const keys: string[] = [];
-  if (k1 && typeof k1 === 'string' && k1.length > 5) keys.push(k1);
-  if (k2 && typeof k2 === 'string' && k2.length > 5) keys.push(k2);
+
+  const addIfValid = (k: any) => {
+    if (k && typeof k === 'string' && k.length > 5) keys.push(k);
+  };
+
+  // 1. Vite Environment (Client Side Standart)
+  // @ts-ignore
+  addIfValid(import.meta.env.VITE_API_KEY);
+  // @ts-ignore
+  addIfValid(import.meta.env.VITE_API_KEY1);
+  // @ts-ignore
+  addIfValid(import.meta.env.VITE_API_KEY2);
   
-  return keys;
+  // 2. Direct Environment (Bazı konfigürasyonlarda VITE_ öneki olmadan gelir)
+  // @ts-ignore
+  addIfValid(import.meta.env.API_KEY);
+  // @ts-ignore
+  addIfValid(import.meta.env.API_KEY1);
+  // @ts-ignore
+  addIfValid(import.meta.env.API_KEY2);
+
+  // 3. Process Environment (Node/Server Side uyumluluğu)
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env) {
+      // @ts-ignore
+      addIfValid(process.env.API_KEY);
+      // @ts-ignore
+      addIfValid(process.env.API_KEY1);
+      // @ts-ignore
+      addIfValid(process.env.API_KEY2);
+      // @ts-ignore
+      addIfValid(process.env.VITE_API_KEY);
+    }
+  } catch (e) {
+    // process erişimi engellendiyse yut
+  }
+
+  // Duplicate'leri temizle
+  return [...new Set(keys)];
 };
 
-// Tekil İstek Atma Fonksiyonu
 const makeRequest = async (apiKey: string, prompt: string): Promise<any> => {
   const response = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://pcdarbogaz.vercel.app", 
+      "HTTP-Referer": typeof window !== 'undefined' ? window.location.href : "https://pcdarbogaz.vercel.app", 
       "X-Title": "PC Darboğaz Hesaplayıcı"
     },
     body: JSON.stringify({
@@ -38,12 +68,15 @@ const makeRequest = async (apiKey: string, prompt: string): Promise<any> => {
           content: prompt
         }
       ],
-      // DeepSeek JSON modunu her zaman tam desteklemez ama prompt ile zorluyoruz
-      temperature: 0.7 
+      // DeepSeek R1 için reasoning flag'i
+      include_reasoning: true,
+      temperature: 0.6
     })
   });
 
   if (!response.ok) {
+    const errText = await response.text();
+    console.error("API Error Body:", errText);
     throw new Error(`API Error: ${response.status}`);
   }
 
@@ -58,85 +91,80 @@ export const analyzeBottleneck = async (
   
   const keys = getApiKeys();
   
-  // Fallback (Hata durumunda dönecek veri)
   const fallbackResult: CalculationResult = {
     bottleneckPercentage: 0,
     bottleneckType: 'None',
     estimatedFps: 0,
-    explanation: "Bağlantı kurulamadı. Lütfen sayfayı yenileyip tekrar deneyin.",
-    tips: ["İnternet bağlantınızı kontrol edin.", "AdBlocker varsa kapatıp deneyin."]
+    explanation: "Bağlantı kurulamadı. API anahtarı eksik veya hatalı yapılandırılmış.",
+    tips: ["API Key tanımlarını kontrol et.", "Vercel environment variables ayarlarını kontrol et."]
   };
 
   if (keys.length === 0) {
-    console.error("HATA: Hiçbir API anahtarı bulunamadı (VITE_API_KEY veya VITE_API_KEY2).");
-    return { ...fallbackResult, explanation: "Sistem yapılandırma hatası: API Anahtarı eksik." };
+    console.error("CRITICAL: No API keys found in any environment variable source.");
+    return fallbackResult;
   }
 
   const prompt = `
-    Sen uzman bir PC donanım analistisin. Aşağıdaki sistem için darboğaz analizi yap.
+    Sen SykoLLM SUPER PRO (DeepSeek R1) mantığıyla çalışan uzman bir donanım analistisin.
     
-    Sistem:
+    Analiz Edilecek Sistem:
     CPU: ${cpu}
     GPU: ${gpu}
     Çözünürlük: ${resolution}
 
     Görevin:
-    1. Darboğaz yüzdesini hesapla (0-100).
-    2. Darboğaz kaynağını belirle (CPU, GPU veya None).
-    3. Tahmini FPS ver.
-    4. Türkçe açıklama ve tavsiye yaz.
-
-    ÇOK ÖNEMLİ: Yanıtın SADECE geçerli bir JSON objesi olmalı. Başka hiçbir metin, <think> etiketi veya markdown kullanma.
+    Bu sistemdeki darboğaz (bottleneck) durumunu hesapla ve saf JSON formatında yanıt ver.
     
-    JSON Formatı:
+    Beklenen JSON Formatı:
     {
-      "bottleneckPercentage": number,
+      "bottleneckPercentage": number (0-100),
       "bottleneckType": "CPU" | "GPU" | "None",
       "estimatedFps": number,
-      "explanation": "kısa türkçe açıklama",
-      "tips": ["tavsiye 1", "tavsiye 2", "tavsiye 3"]
+      "explanation": "Kısa, kullanıcı dostu Türkçe açıklama",
+      "tips": ["Tavsiye 1", "Tavsiye 2", "Tavsiye 3"]
     }
+
+    ÖNEMLİ: Yanıtın sadece JSON olsun. Markdown bloğu veya <think> tag'i içerme.
   `;
 
-  // --- API KEY ROTASYON MANTIĞI ---
-  // Sırayla anahtarları dene. Biri çalışırsa sonucu döndür.
+  // Key Rotation Logic
   for (let i = 0; i < keys.length; i++) {
     const currentKey = keys[i];
     try {
-      console.log(`Deneme yapılıyor: Anahtar ${i + 1}`);
+      console.log(`API İsteği gönderiliyor (Key Index: ${i})...`);
       const data = await makeRequest(currentKey, prompt);
       
       let content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error("Boş yanıt");
+      
+      // DeepSeek R1 "reasoning" içeriği bazen content'e sızabilir veya ayrı gelir.
+      // Biz sadece content'i işliyoruz ama <think> bloklarını temizlememiz lazım.
+      if (content) {
+        // <think> bloklarını temizle
+        content = content.replace(/<think>[\s\S]*?<\/think>/g, '');
+        // Markdown temizliği
+        content = content.replace(/```json/g, '').replace(/```/g, '').trim();
 
-      // DeepSeek R1 Temizliği
-      // <think> bloklarını sil
-      content = content.replace(/<think>[\s\S]*?<\/think>/g, '');
-      // Markdown kod bloklarını sil
-      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-
-      // JSON Parse
-      const parsed = JSON.parse(content);
-
-      // Başarılı olursa döndür
-      return {
-        bottleneckPercentage: Number(parsed.bottleneckPercentage) || 0,
-        bottleneckType: (parsed.bottleneckType as 'CPU' | 'GPU' | 'None') || 'None',
-        estimatedFps: Number(parsed.estimatedFps) || 60,
-        explanation: parsed.explanation || "Analiz tamamlandı.",
-        tips: Array.isArray(parsed.tips) ? parsed.tips : ["Sistemini güncel tut."]
-      };
-
+        try {
+          const parsed = JSON.parse(content);
+          return {
+            bottleneckPercentage: Number(parsed.bottleneckPercentage) || 0,
+            bottleneckType: (parsed.bottleneckType as 'CPU' | 'GPU' | 'None') || 'None',
+            estimatedFps: Number(parsed.estimatedFps) || 60,
+            explanation: parsed.explanation || "Analiz tamamlandı.",
+            tips: Array.isArray(parsed.tips) ? parsed.tips : ["Sürücülerini güncelle."]
+          };
+        } catch (jsonError) {
+          console.error("JSON Parse Hatası:", jsonError, "Gelen Veri:", content);
+        }
+      }
     } catch (error) {
-      console.warn(`Anahtar ${i + 1} başarısız oldu:`, error);
-      // Eğer bu son anahtarsa ve başarısız olduysa, döngü biter ve aşağıya düşer.
-      // Değilse, döngü bir sonraki anahtara geçer.
+      console.warn(`Key ${i} failed:`, error);
+      // Continue to next key
     }
   }
 
-  // Döngü bitti ve hiçbir anahtar çalışmadıysa
   return {
     ...fallbackResult,
-    explanation: "Sunucu şu anda çok yoğun veya tüm anahtarların limiti dolmuş durumda. Lütfen daha sonra tekrar dene."
+    explanation: "Sunucu yanıt vermedi. Lütfen daha sonra tekrar deneyin."
   };
 };
