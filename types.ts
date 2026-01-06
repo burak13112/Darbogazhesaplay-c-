@@ -1,7 +1,7 @@
 export interface HardwareItem {
   id: string;
   name: string;
-  score?: number; // Simplified internal score for fallback logic
+  score: number; // Internal performance score (0-120 scale typically)
 }
 
 export interface CalculationResult {
