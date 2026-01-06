@@ -1,8 +1,6 @@
 import { HardwareItem, Resolution, AdConfiguration } from './types';
 
 // --- REKLAM AYARLARI (AD SETTINGS) ---
-// AdSense kullanmak için type: 'adsense' yap ve slot ID'lerini gir.
-// Görsel kullanmak için type: 'custom' yap ve resim linklerini gir.
 
 export const AD_CONFIG: {
   banner: AdConfiguration | null;
@@ -10,26 +8,34 @@ export const AD_CONFIG: {
 } = {
   // Üstteki uzun reklam alanı
   banner: {
-    type: 'adsense', // AdSense aktif edildi
-    // Custom ayarları (AdSense çalışmazsa veya onaylanmazsa buraya dönebilirsin)
-    imageUrl: "https://placehold.co/728x90/1e293b/475569?text=Oyuncu+Ekipmanlarinda+Dev+Indirim",
-    redirectUrl: "https://www.amazon.com.tr/gaming",
-    altText: "Oyuncu Ekipmanları İndirimi",
-    // AdSense ayarları
-    adClient: "ca-pub-9595860294846239", // Senin Publisher ID'n
-    adSlot: "1234567890", // DİKKAT: AdSense panelinden "Yatay Banner" oluşturup ID'sini buraya yapıştır
+    type: 'adsense', 
+    // Custom fallback
+    imageUrl: "https://placehold.co/728x90/1e293b/475569?text=Reklam+Alani",
+    redirectUrl: "#",
+    altText: "Reklam",
+    
+    // --- BURAYI DOLDURMAN LAZIM ---
+    adClient: "ca-pub-9595860294846239", 
+    // 1. AdSense paneline git -> Reklamlar -> Yeni Reklam Birimi -> Görüntülü Reklam
+    // 2. Yatay banner oluştur.
+    // 3. Verilen kodun içindeki data-ad-slot numarasını aşağıya yaz:
+    adSlot: "1055857875", 
   },
   
   // Sağdaki kare reklam alanı
   sidebar: {
-    type: 'adsense', // AdSense aktif edildi
-    // Custom ayarları
-    imageUrl: "https://placehold.co/300x250/1e293b/475569?text=RTX+4060+Kampanyasi",
-    redirectUrl: "https://www.amazon.com.tr/s?k=rtx+4060",
-    altText: "Ekran Kartı Kampanyası",
-    // AdSense ayarları
-    adClient: "ca-pub-9595860294846239", // Senin Publisher ID'n
-    adSlot: "0987654321", // DİKKAT: AdSense panelinden "Kare/Dikdörtgen" reklam oluşturup ID'sini buraya yapıştır
+    type: 'adsense',
+    // Custom fallback
+    imageUrl: "https://placehold.co/300x250/1e293b/475569?text=Reklam+Alani",
+    redirectUrl: "#",
+    altText: "Reklam",
+
+    // --- BURAYI DOLDURMAN LAZIM ---
+    adClient: "ca-pub-9595860294846239",
+    // 1. AdSense paneline git -> Reklamlar -> Yeni Reklam Birimi -> Görüntülü Reklam
+    // 2. Kare (Dikdörtgen) reklam oluştur.
+    // 3. Verilen kodun içindeki data-ad-slot numarasını aşağıya yaz:
+    adSlot: "2386935628", 
   }
 };
 

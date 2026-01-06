@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AdProps } from '../types';
 
 declare global {
@@ -9,35 +9,60 @@ declare global {
 
 const AdSpace: React.FC<AdProps> = ({ size, className = '', config }) => {
   const isBanner = size === 'banner';
+  const adRef = useRef<HTMLModElement>(null);
+  const isLoaded = useRef(false);
 
   // --- GOOGLE ADSENSE MODE ---
   if (config?.type === 'adsense') {
+    
     useEffect(() => {
-      // Safely push ads inside useEffect
-      try {
-        if (window.adsbygoogle) {
-          window.adsbygoogle.push({});
-        }
-      } catch (e) {
-        console.error("AdSense push error:", e);
-      }
-    }, [config.adSlot]); // Re-run if slot changes
+      // Slot ID girilmemişse veya '12345...' gibi dummy data ise AdSense'i tetikleme
+      const isValidId = config.adSlot && config.adSlot.length > 5 && /^\d+$/.test(config.adSlot);
 
-    // AdSense requires a specific structure with classes
+      if (isValidId && !isLoaded.current && adRef.current) {
+        try {
+          // Initialize adsbygoogle if it doesn't exist
+          if (!window.adsbygoogle) {
+            window.adsbygoogle = [];
+          }
+          
+          // Push the ad
+          window.adsbygoogle.push({});
+          isLoaded.current = true;
+        } catch (e) {
+          console.error("AdSense push error:", e);
+        }
+      }
+    }, [config.adSlot]);
+
+    // Eğer geçerli bir Slot ID yoksa fallback (kendi görselin) göster
+    const isValidId = config.adSlot && config.adSlot.length > 5 && /^\d+$/.test(config.adSlot);
+    
+    if (!isValidId) {
+       // Slot ID yoksa Custom moda dön veya boş göster
+       return (
+        <div className={`relative overflow-hidden bg-slate-800 border border-slate-700/50 rounded-lg flex items-center justify-center p-4 text-center ${className} ${isBanner ? 'h-24' : 'h-64'}`}>
+          <div className="text-slate-500 text-xs">
+            <p className="font-bold mb-1">REKLAM ALANI</p>
+            <p className="opacity-70">Google AdSense Panelinden "Reklam Birimi" oluşturup<br/>constants.ts dosyasına ID'sini girmelisin.</p>
+          </div>
+        </div>
+       );
+    }
+
     return (
-      <div className={`text-center bg-slate-800 rounded-lg overflow-hidden ${className}`}>
-        {/* Container for centering */}
+      <div className={`text-center bg-slate-800/50 rounded-lg overflow-hidden ${className}`}>
         <div className="inline-block w-full">
            <ins
+            ref={adRef}
             className="adsbygoogle"
-            style={{ display: 'block' }}
+            style={{ display: 'block', width: '100%', height: isBanner ? '90px' : '250px' }}
             data-ad-client={config.adClient}
             data-ad-slot={config.adSlot}
             data-ad-format="auto"
             data-full-width-responsive="true"
           ></ins>
         </div>
-        <div className="text-[10px] text-slate-600 mt-1 uppercase">Reklam</div>
       </div>
     );
   }
@@ -68,29 +93,7 @@ const AdSpace: React.FC<AdProps> = ({ size, className = '', config }) => {
     );
   }
 
-  // --- FALLBACK / PLACEHOLDER MODE ---
-  return (
-    <div 
-      className={`
-        relative overflow-hidden bg-slate-800 border-2 border-dashed border-slate-700 
-        flex flex-col items-center justify-center text-center p-4 rounded-lg
-        ${isBanner ? 'h-24 w-full' : 'h-64 w-full md:w-64'}
-        ${className}
-      `}
-    >
-      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')]"></div>
-      
-      <span className="z-10 text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">
-        Reklam Alanı
-      </span>
-      <h3 className="z-10 text-lg font-semibold text-slate-400">
-        {isBanner ? 'Reklam Verin' : 'Sponsor'}
-      </h3>
-      <p className="z-10 text-xs text-slate-500 mt-2">
-        Bu alan boştur.
-      </p>
-    </div>
-  );
+  return null;
 };
 
 export default AdSpace;
