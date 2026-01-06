@@ -2,22 +2,49 @@ import { CalculationResult } from '../types';
 
 // API Keys rotation logic
 const getApiKey = (): string | null => {
-  const keys = [
-    process.env.API_KEY, 
-    process.env.API_KEY2
-  ].filter(key => key && key.trim() !== '');
+  let candidates: (string | undefined)[] = [];
 
-  if (keys.length === 0) return null;
+  // 1. VITE (Modern React) Kontrolü - Genellikle burası çalışır
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      candidates.push(import.meta.env.VITE_API_KEY);
+      // @ts-ignore
+      candidates.push(import.meta.env.VITE_API_KEY2);
+      // @ts-ignore
+      candidates.push(import.meta.env.API_KEY); // Bazı özel configlerde çalışabilir
+    }
+  } catch (e) {
+    // import.meta desteklenmiyorsa geç
+  }
+
+  // 2. PROCESS.ENV (CRA / Next.js / Webpack) Kontrolü
+  if (typeof process !== 'undefined' && process.env) {
+    candidates.push(process.env.REACT_APP_API_KEY);
+    candidates.push(process.env.REACT_APP_API_KEY2);
+    candidates.push(process.env.NEXT_PUBLIC_API_KEY);
+    candidates.push(process.env.VITE_API_KEY); // process.env içine inject edildiyse
+    candidates.push(process.env.API_KEY);
+    candidates.push(process.env.API_KEY2);
+  }
+
+  // Boş veya undefined olanları filtrele
+  const validKeys = candidates.filter(key => key && typeof key === 'string' && key.trim().length > 10);
+
+  if (validKeys.length === 0) {
+    console.warn("API Anahtarı bulunamadı. Lütfen Vercel Env Variables kısmında anahtar isminin başına 'VITE_' veya 'REACT_APP_' eklediğinizden emin olun (Örn: VITE_API_KEY).");
+    return null;
+  }
   
-  // Pick a random key to distribute load
-  const randomIndex = Math.floor(Math.random() * keys.length);
-  return keys[randomIndex] || null;
+  // Yük dağıtımı için rastgele bir anahtar seç
+  const randomIndex = Math.floor(Math.random() * validKeys.length);
+  return validKeys[randomIndex] as string;
 };
 
 // OpenRouter Configuration
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// Using the generic free alias which usually points to the latest stable free R1 version
-const MODEL_ID = "deepseek/deepseek-r1-0528:free"; 
+const MODEL_ID = "deepseek/deepseek-r1:free"; 
 
 export const analyzeBottleneck = async (
   cpu: string,
@@ -31,12 +58,11 @@ export const analyzeBottleneck = async (
     bottleneckPercentage: 15,
     bottleneckType: 'None',
     estimatedFps: 75,
-    explanation: "API anahtarları eksik. Lütfen Vercel panelinden API_KEY ve API_KEY2 tanımlayın.",
-    tips: ["API Key tanımlamayı unutmayın.", "OpenRouter key alın."]
+    explanation: "API anahtarı okunamadı. Vercel ayarlarında anahtar isminin 'VITE_API_KEY' olduğundan emin olun (Sadece 'API_KEY' tarayıcıda görünmez).",
+    tips: ["Vercel > Settings > Environment Variables'a git.", "API_KEY adını VITE_API_KEY olarak değiştir.", "Projeyi Redeploy et."]
   };
 
   if (!apiKey) {
-    console.error("API Keys are missing!");
     return fallbackResult;
   }
 
@@ -70,7 +96,7 @@ export const analyzeBottleneck = async (
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://pcdarbogaz.vercel.app", // OpenRouter requirement
+        "HTTP-Referer": "https://pcdarbogaz.vercel.app", 
         "X-Title": "PC Darboğaz Hesaplayıcı"
       },
       body: JSON.stringify({
@@ -81,13 +107,19 @@ export const analyzeBottleneck = async (
             content: prompt
           }
         ],
-        // DeepSeek parameters to encourage JSON
         response_format: { type: "json_object" } 
       })
     });
 
     if (!response.ok) {
-      console.error(`OpenRouter API Error: ${response.status} - ${response.statusText}`);
+      // 401 hatası genellikle anahtarın yanlış veya boş gitmesinden kaynaklanır
+      if (response.status === 401) {
+         console.error("API Key Rejected. Key used starts with:", apiKey.substring(0, 5) + "...");
+         return {
+             ...fallbackResult,
+             explanation: "API anahtarı reddedildi. Lütfen geçerli bir OpenRouter anahtarı kullanın."
+         };
+      }
       return fallbackResult;
     }
 
@@ -97,25 +129,17 @@ export const analyzeBottleneck = async (
     if (!content) return fallbackResult;
 
     // --- DeepSeek R1 Cleaning Logic ---
-    // DeepSeek R1 often includes <think>...</think> blocks. We must strip them.
     content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-    
-    // Sometimes it wraps JSON in markdown code blocks ```json ... ```
     content = content.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
 
-    // Parse JSON
     try {
       const parsed = JSON.parse(content) as CalculationResult;
-      
-      // Basic validation to ensure fields exist
       if (typeof parsed.bottleneckPercentage !== 'number') throw new Error("Invalid format");
-      
       return parsed;
     } catch (parseError) {
-      console.error("JSON Parse Error:", parseError, "Raw Content:", content);
       return {
         ...fallbackResult,
-        explanation: "Yapay zeka yanıtı işlenirken bir hata oluştu, ancak sisteminiz genel olarak uyumlu görünüyor."
+        explanation: "Yapay zeka yanıtı işlenirken bir hata oluştu, ancak donanımlarınız uyumlu görünüyor."
       };
     }
 
