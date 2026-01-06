@@ -10,26 +10,26 @@ export const AD_CONFIG: {
 } = {
   // Üstteki uzun reklam alanı
   banner: {
-    type: 'custom', // 'adsense' veya 'custom'
-    // Custom ayarları
+    type: 'adsense', // AdSense aktif edildi
+    // Custom ayarları (AdSense çalışmazsa veya onaylanmazsa buraya dönebilirsin)
     imageUrl: "https://placehold.co/728x90/1e293b/475569?text=Oyuncu+Ekipmanlarinda+Dev+Indirim",
     redirectUrl: "https://www.amazon.com.tr/gaming",
     altText: "Oyuncu Ekipmanları İndirimi",
-    // AdSense ayarları (Eğer type: 'adsense' seçersen burayı doldur)
-    adClient: "ca-pub-XXXXXXXXXXXXXXXX", // Kendi Publisher ID'n
-    adSlot: "1234567890", // AdSense panelinden alacağın Banner Slot ID
+    // AdSense ayarları
+    adClient: "ca-pub-9595860294846239", // Senin Publisher ID'n
+    adSlot: "1234567890", // DİKKAT: AdSense panelinden "Yatay Banner" oluşturup ID'sini buraya yapıştır
   },
   
   // Sağdaki kare reklam alanı
   sidebar: {
-    type: 'custom', // 'adsense' veya 'custom'
+    type: 'adsense', // AdSense aktif edildi
     // Custom ayarları
     imageUrl: "https://placehold.co/300x250/1e293b/475569?text=RTX+4060+Kampanyasi",
     redirectUrl: "https://www.amazon.com.tr/s?k=rtx+4060",
     altText: "Ekran Kartı Kampanyası",
     // AdSense ayarları
-    adClient: "ca-pub-XXXXXXXXXXXXXXXX", 
-    adSlot: "0987654321", // AdSense panelinden alacağın Sidebar Slot ID
+    adClient: "ca-pub-9595860294846239", // Senin Publisher ID'n
+    adSlot: "0987654321", // DİKKAT: AdSense panelinden "Kare/Dikdörtgen" reklam oluşturup ID'sini buraya yapıştır
   }
 };
 
