@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CPUS, GPUS, RESOLUTIONS, AD_CONFIG } from './constants';
-import { CalculationResult, Resolution } from './types';
+import { CalculationResult } from './types';
 import { analyzeBottleneck } from './services/geminiService';
 import { getDailyUsage, incrementDailyUsage, hasRemainingRights, DAILY_LIMIT } from './services/limitService';
 import AdSpace from './components/AdSpace';
@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<CalculationResult | null>(null);
+  const [loadingText, setLoadingText] = useState("Sistem verileri toplanıyor...");
   
   // Limit State
   const [usageCount, setUsageCount] = useState<number>(0);
@@ -53,23 +54,29 @@ const App: React.FC = () => {
     setLoading(true);
     setProgress(0);
     setResult(null);
+    setLoadingText("Donanım uyumu analiz ediliyor...");
 
-    // Increment locally immediately to prevent spamming
+    // Hak düşümü
     const newCount = incrementDailyUsage();
     setUsageCount(newCount);
     if (newCount >= DAILY_LIMIT) setIsLimitReached(true);
 
-    // Progress bar animation loop
+    // Progress bar animasyonu
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 90) return prev; // Stop at 90% until data arrives
-        return prev + 1.5; // Increment
+        if (prev >= 95) return prev;
+        // 5-7 saniye sürmesi için yavaş artış
+        return prev + 1.2; 
       });
     }, 100);
 
+    // Metin animasyonu
+    const textTimeout1 = setTimeout(() => setLoadingText("İşlemci ve Ekran kartı veriyolu hesaplanıyor..."), 2000);
+    const textTimeout2 = setTimeout(() => setLoadingText("Yapay zeka darboğazı tahmin ediyor..."), 4500);
+
     try {
-      // Enforce minimum 5 seconds delay as requested by user ("5-7 saniye")
-      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 6000));
+      // Minimum 5.5 saniye bekleme süresi (istek üzerine)
+      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 5500));
       const apiPromise = analyzeBottleneck(selectedCpu, selectedGpu, selectedRes);
 
       const [_, apiResult] = await Promise.all([minDelayPromise, apiPromise]);
@@ -77,7 +84,7 @@ const App: React.FC = () => {
       clearInterval(interval);
       setProgress(100);
       
-      // Small delay to show 100% before showing result
+      // 100% dolunca azıcık bekle ki kullanıcı görsün
       setTimeout(() => {
         setResult(apiResult);
         setLoading(false);
@@ -87,6 +94,9 @@ const App: React.FC = () => {
       console.error(e);
       setLoading(false);
       clearInterval(interval);
+    } finally {
+      clearTimeout(textTimeout1);
+      clearTimeout(textTimeout2);
     }
   };
 
@@ -115,7 +125,7 @@ const App: React.FC = () => {
               <span>Günlük Hak: {DAILY_LIMIT - usageCount}</span>
             </div>
             <div className="text-xs text-slate-400 hidden sm:block">
-              v1.0.0
+              v1.2.0
             </div>
           </div>
         </div>
@@ -281,7 +291,7 @@ const App: React.FC = () => {
                      </div>
                   </div>
                   <h3 className="text-xl font-semibold animate-pulse text-blue-400 mb-4">
-                    Donanım uyumu analiz ediliyor...
+                    {loadingText}
                   </h3>
                   {/* Progress Bar */}
                   <div className="w-full bg-slate-900 rounded-full h-4 overflow-hidden shadow-inner border border-slate-700">
