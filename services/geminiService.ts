@@ -17,7 +17,7 @@ const getApiKey = (): string | null => {
 // OpenRouter Configuration
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // Using the generic free alias which usually points to the latest stable free R1 version
-const MODEL_ID = "deepseek/deepseek-r1:free"; 
+const MODEL_ID = "deepseek/deepseek-r1-0528:free"; 
 
 export const analyzeBottleneck = async (
   cpu: string,
